@@ -12,11 +12,19 @@ describe("OpenAPI documentation", () => {
     expect(await response.text()).toContain("<!doctype html>");
   });
 
-  it("documents the supported model enum", async () => {
+  it("documents the supported model enum and Bearer authentication", async () => {
     const response = await createApp({ apiKey: "server-secret" }).handle(
       new Request("http://localhost/docs/json"),
     );
     const document = (await response.json()) as {
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            scheme: string;
+            type: string;
+          };
+        };
+      };
       paths: {
         "/v1/chat/completions": {
           post: {
@@ -31,6 +39,7 @@ describe("OpenAPI documentation", () => {
                 };
               };
             };
+            security: Array<{ bearerAuth: [] }>;
           };
         };
       };
@@ -48,5 +57,12 @@ describe("OpenAPI documentation", () => {
       "gpt-oss-120b-32k",
       "gpt-oss-20b-32k",
     ]);
+    expect(document.components.securitySchemes.bearerAuth).toEqual({
+      type: "http",
+      scheme: "bearer",
+    });
+    expect(
+      document.paths["/v1/chat/completions"].post.security,
+    ).toEqual([{ bearerAuth: [] }]);
   });
 });

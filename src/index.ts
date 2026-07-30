@@ -1,5 +1,6 @@
 import { Elysia, t, type Static } from "elysia";
 import { openapi } from "@elysia/openapi";
+import { apiKeys } from "./config/api-token";
 
 const UPSTREAM_CHAT_COMPLETIONS_URL =
   "https://afspod-llm-api.dginfra.gov.tw/projects/392a1838-7af3-4679-8360-c0e24b4bcf8f/api/models/chat/completions";
@@ -27,6 +28,7 @@ type Fetcher = (
 ) => Promise<Response>;
 
 type AppOptions = {
+  allowedApiKeys?: readonly string[];
   apiKey?: string;
   fetcher?: Fetcher;
 };
@@ -44,12 +46,48 @@ const openAIError = (status: number, message: string, code: string) =>
     { status },
   );
 
+const bearerTokenFrom = (authorization: string | undefined) =>
+  authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+
+const invalidApiKeyResponse = () =>
+  Response.json(
+    {
+      error: {
+        message: "Invalid or missing API key",
+        type: "invalid_request_error",
+        param: null,
+        code: "invalid_api_key",
+      },
+    },
+    {
+      status: 401,
+      headers: { "www-authenticate": "Bearer" },
+    },
+  );
+
 export const createApp = ({
+  allowedApiKeys = apiKeys,
   apiKey = process.env.X_API_KEY,
   fetcher = fetch,
-}: AppOptions = {}) =>
-  new Elysia()
-    .use(openapi({ path: "/docs" }))
+}: AppOptions = {}) => {
+  const allowedApiKeySet = new Set(allowedApiKeys);
+
+  return new Elysia()
+    .use(
+      openapi({
+        path: "/docs",
+        documentation: {
+          components: {
+            securitySchemes: {
+              bearerAuth: {
+                type: "http",
+                scheme: "bearer",
+              },
+            },
+          },
+        },
+      }),
+    )
     .onError(({ code }) => {
       if (code === "VALIDATION") {
         return Response.json(
@@ -100,8 +138,22 @@ export const createApp = ({
         );
       }
     }, {
+      beforeHandle: ({ headers }) => {
+        const bearerToken = bearerTokenFrom(headers.authorization);
+
+        if (!bearerToken || !allowedApiKeySet.has(bearerToken)) {
+          return invalidApiKeyResponse();
+        }
+      },
       body: ChatCompletionsBodySchema,
+      detail: {
+        tags: ["chat"],
+        summary: "Chat completions",
+        description: "Generates chat completions using the configured upstream service.",
+        security: [{ bearerAuth: [] }],
+      },
     });
+};
 
 if (import.meta.main) {
   const app = createApp().listen(Number(process.env.PORT ?? 3000));

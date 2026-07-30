@@ -54,6 +54,7 @@ POST http://localhost:3000/v1/chat/completions
 
 ```bash
 curl http://localhost:3000/v1/chat/completions \
+  -H "Authorization: Bearer <api-key-from-api-token.ts>" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gemma-4-31b-it",
@@ -72,7 +73,7 @@ curl http://localhost:3000/v1/chat/completions \
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "local-proxy",
+  apiKey: "<api-key-from-api-token.ts>",
   baseURL: "http://localhost:3000/v1",
 });
 
@@ -83,6 +84,8 @@ const response = await client.chat.completions.create({
 
 console.log(response.choices[0]?.message);
 ```
+
+可用的 Bearer token 定義在 `src/config/api-token.ts` 的 `apiKeys`。缺少 token 或 token 不在清單內時，API 會回傳 HTTP 401 與 OpenAI-compatible `invalid_api_key` error。
 
 串流請求同樣支援，只要在 OpenAI request body 加上 `"stream": true`。
 

@@ -1,7 +1,89 @@
 import { describe, expect, it } from "bun:test";
 import { createApp } from "../src/index";
 
+const TEST_CLIENT_API_KEY = "test-client-api-key";
+const authorizedJsonHeaders = {
+  authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
+  "content-type": "application/json",
+};
+type TestAppOptions = NonNullable<Parameters<typeof createApp>[0]>;
+const createTestApp = (options: TestAppOptions = {}) =>
+  createApp({
+    ...options,
+    allowedApiKeys: [TEST_CLIENT_API_KEY],
+  });
+
 describe("POST /v1/chat/completions", () => {
+  it("rejects a request without Bearer authentication", async () => {
+    let fetchCalled = false;
+    const app = createTestApp({
+      apiKey: "server-secret",
+      fetcher: async () => {
+        fetchCalled = true;
+        return Response.json({});
+      },
+    });
+
+    const response = await app.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "gemma-4-31b-it",
+          messages: [{ role: "user", content: "Hello" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe("Bearer");
+    expect(fetchCalled).toBe(false);
+    expect(await response.json()).toEqual({
+      error: {
+        message: "Invalid or missing API key",
+        type: "invalid_request_error",
+        param: null,
+        code: "invalid_api_key",
+      },
+    });
+  });
+
+  it("rejects a Bearer token outside the apiKeys allow-list", async () => {
+    let fetchCalled = false;
+    const app = createTestApp({
+      apiKey: "server-secret",
+      fetcher: async () => {
+        fetchCalled = true;
+        return Response.json({});
+      },
+    });
+
+    const response = await app.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer definitely-not-allowed",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gemma-4-31b-it",
+          messages: [{ role: "user", content: "Hello" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(fetchCalled).toBe(false);
+    expect(await response.json()).toEqual({
+      error: {
+        message: "Invalid or missing API key",
+        type: "invalid_request_error",
+        param: null,
+        code: "invalid_api_key",
+      },
+    });
+  });
+
   it("forwards the OpenAI request with the configured X-API-KEY", async () => {
     const requestBody = {
       model: "gemma-4-31b-it",
@@ -10,7 +92,7 @@ describe("POST /v1/chat/completions", () => {
     };
     let upstreamRequest: Request | undefined;
 
-    const app = createApp({
+    const app = createTestApp({
       apiKey: "server-secret",
       fetcher: async (input, init) => {
         upstreamRequest = new Request(input, init);
@@ -27,6 +109,7 @@ describe("POST /v1/chat/completions", () => {
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
         headers: {
+          authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
           "content-type": "application/json",
           "x-api-key": "client-must-not-override-this",
         },
@@ -42,7 +125,7 @@ describe("POST /v1/chat/completions", () => {
 
   it("returns an OpenAI-compatible error when X_API_KEY is missing", async () => {
     let fetchCalled = false;
-    const app = createApp({
+    const app = createTestApp({
       apiKey: "",
       fetcher: async () => {
         fetchCalled = true;
@@ -53,7 +136,7 @@ describe("POST /v1/chat/completions", () => {
     const response = await app.handle(
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: authorizedJsonHeaders,
         body: JSON.stringify({
           model: "gemma-4-31b-it",
           messages: [{ role: "user", content: "Hello" }],
@@ -74,7 +157,7 @@ describe("POST /v1/chat/completions", () => {
   });
 
   it("returns an OpenAI-compatible 502 when the upstream is unavailable", async () => {
-    const app = createApp({
+    const app = createTestApp({
       apiKey: "server-secret",
       fetcher: async () => {
         throw new Error("connection refused");
@@ -84,7 +167,7 @@ describe("POST /v1/chat/completions", () => {
     const response = await app.handle(
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: authorizedJsonHeaders,
         body: JSON.stringify({
           model: "gemma-4-31b-it",
           messages: [{ role: "user", content: "Hello" }],
@@ -106,7 +189,7 @@ describe("POST /v1/chat/completions", () => {
   it("passes through streaming responses and the client's Accept header", async () => {
     let upstreamRequest: Request | undefined;
     const encoder = new TextEncoder();
-    const app = createApp({
+    const app = createTestApp({
       apiKey: "server-secret",
       fetcher: async (input, init) => {
         upstreamRequest = new Request(input, init);
@@ -135,6 +218,7 @@ describe("POST /v1/chat/completions", () => {
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
         headers: {
+          authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
           accept: "text/event-stream",
           "content-type": "application/json",
         },
@@ -156,7 +240,7 @@ describe("POST /v1/chat/completions", () => {
 
   it("rejects a model outside the supported enum", async () => {
     let fetchCalled = false;
-    const app = createApp({
+    const app = createTestApp({
       apiKey: "server-secret",
       fetcher: async () => {
         fetchCalled = true;
@@ -167,7 +251,7 @@ describe("POST /v1/chat/completions", () => {
     const response = await app.handle(
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: authorizedJsonHeaders,
         body: JSON.stringify({
           model: "unsupported-model",
           messages: [{ role: "user", content: "Hello" }],
@@ -197,7 +281,7 @@ describe("POST /v1/chat/completions", () => {
       "gpt-oss-20b-32k",
     ];
     const forwardedModels: string[] = [];
-    const app = createApp({
+    const app = createTestApp({
       apiKey: "server-secret",
       fetcher: async (_input, init) => {
         const body = JSON.parse(String(init?.body)) as { model: string };
@@ -210,7 +294,7 @@ describe("POST /v1/chat/completions", () => {
       const response = await app.handle(
         new Request("http://localhost/v1/chat/completions", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: authorizedJsonHeaders,
           body: JSON.stringify({
             model,
             messages: [{ role: "user", content: "Hello" }],
