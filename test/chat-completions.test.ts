@@ -3,308 +3,330 @@ import { createApp } from "../src/index";
 
 const TEST_CLIENT_API_KEY = "test-client-api-key";
 const authorizedJsonHeaders = {
-  authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
-  "content-type": "application/json",
+	authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
+	"content-type": "application/json",
 };
 type TestAppOptions = NonNullable<Parameters<typeof createApp>[0]>;
 const createTestApp = (options: TestAppOptions = {}) =>
-  createApp({
-    ...options,
-    allowedApiKeys: [TEST_CLIENT_API_KEY],
-  });
+	createApp({
+		...options,
+		allowedApiKeys: [TEST_CLIENT_API_KEY],
+	});
 
 describe("POST /v1/chat/completions", () => {
-  it("rejects a request without Bearer authentication", async () => {
-    let fetchCalled = false;
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async () => {
-        fetchCalled = true;
-        return Response.json({});
-      },
-    });
+	it("rejects a request without Bearer authentication", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: "gemma-4-31b-it",
-          messages: [{ role: "user", content: "Hello" }],
-        }),
-      }),
-    );
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
 
-    expect(response.status).toBe(401);
-    expect(response.headers.get("www-authenticate")).toBe("Bearer");
-    expect(fetchCalled).toBe(false);
-    expect(await response.json()).toEqual({
-      error: {
-        message: "Invalid or missing API key",
-        type: "invalid_request_error",
-        param: null,
-        code: "invalid_api_key",
-      },
-    });
-  });
+		expect(response.status).toBe(401);
+		expect(response.headers.get("www-authenticate")).toBe("Bearer");
+		expect(fetchCalled).toBe(false);
+		expect(await response.json()).toEqual({
+			error: {
+				message: "Invalid or missing API key",
+				type: "invalid_request_error",
+				param: null,
+				code: "invalid_api_key",
+			},
+		});
+	});
 
-  it("rejects a Bearer token outside the apiKeys allow-list", async () => {
-    let fetchCalled = false;
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async () => {
-        fetchCalled = true;
-        return Response.json({});
-      },
-    });
+	it("authenticates before validating the request body", async () => {
+		const response = await createTestApp({
+			upstreamApiKey: "server-secret",
+		}).handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "unsupported-model",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer definitely-not-allowed",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemma-4-31b-it",
-          messages: [{ role: "user", content: "Hello" }],
-        }),
-      }),
-    );
+		expect(response.status).toBe(401);
+		expect((await response.json()).error.code).toBe("invalid_api_key");
+	});
 
-    expect(response.status).toBe(401);
-    expect(fetchCalled).toBe(false);
-    expect(await response.json()).toEqual({
-      error: {
-        message: "Invalid or missing API key",
-        type: "invalid_request_error",
-        param: null,
-        code: "invalid_api_key",
-      },
-    });
-  });
+	it("rejects a Bearer token outside the apiKeys allow-list", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
 
-  it("forwards the OpenAI request with the configured X-API-KEY", async () => {
-    const requestBody = {
-      model: "gemma-4-31b-it",
-      messages: [{ role: "user", content: "Hello" }],
-      temperature: 0.2,
-    };
-    let upstreamRequest: Request | undefined;
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					authorization: "Bearer definitely-not-allowed",
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
 
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async (input, init) => {
-        upstreamRequest = new Request(input, init);
+		expect(response.status).toBe(401);
+		expect(fetchCalled).toBe(false);
+		expect(await response.json()).toEqual({
+			error: {
+				message: "Invalid or missing API key",
+				type: "invalid_request_error",
+				param: null,
+				code: "invalid_api_key",
+			},
+		});
+	});
 
-        return Response.json({
-          id: "chatcmpl-123",
-          object: "chat.completion",
-          choices: [],
-        });
-      },
-    });
+	it("forwards the OpenAI request with the configured X-API-KEY", async () => {
+		const requestBody = {
+			model: "gemma-4-31b-it",
+			messages: [{ role: "user", content: "Hello" }],
+			temperature: 0.2,
+		};
+		let upstreamRequest: Request | undefined;
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
-          "content-type": "application/json",
-          "x-api-key": "client-must-not-override-this",
-        },
-        body: JSON.stringify(requestBody),
-      }),
-    );
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (input, init) => {
+				upstreamRequest = new Request(input, init);
 
-    expect(response.status).toBe(200);
-    expect(upstreamRequest?.headers.get("x-api-key")).toBe("server-secret");
-    expect(upstreamRequest?.headers.get("content-type")).toBe("application/json");
-    expect(await upstreamRequest?.json()).toEqual(requestBody);
-  });
+				return Response.json({
+					id: "chatcmpl-123",
+					object: "chat.completion",
+					choices: [],
+				});
+			},
+		});
 
-  it("returns an OpenAI-compatible error when X_API_KEY is missing", async () => {
-    let fetchCalled = false;
-    const app = createTestApp({
-      apiKey: "",
-      fetcher: async () => {
-        fetchCalled = true;
-        return Response.json({});
-      },
-    });
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
+					"content-type": "application/json",
+					"x-api-key": "client-must-not-override-this",
+				},
+				body: JSON.stringify(requestBody),
+			}),
+		);
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: authorizedJsonHeaders,
-        body: JSON.stringify({
-          model: "gemma-4-31b-it",
-          messages: [{ role: "user", content: "Hello" }],
-        }),
-      }),
-    );
+		expect(response.status).toBe(200);
+		expect(upstreamRequest?.headers.get("x-api-key")).toBe("server-secret");
+		expect(upstreamRequest?.headers.get("content-type")).toBe(
+			"application/json",
+		);
+		expect(await upstreamRequest?.json()).toEqual(requestBody);
+	});
 
-    expect(response.status).toBe(500);
-    expect(fetchCalled).toBe(false);
-    expect(await response.json()).toEqual({
-      error: {
-        message: "Server configuration error: X_API_KEY is not set",
-        type: "server_error",
-        param: null,
-        code: "missing_x_api_key",
-      },
-    });
-  });
+	it("returns an OpenAI-compatible error when X_API_KEY is missing", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
 
-  it("returns an OpenAI-compatible 502 when the upstream is unavailable", async () => {
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async () => {
-        throw new Error("connection refused");
-      },
-    });
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: authorizedJsonHeaders,
-        body: JSON.stringify({
-          model: "gemma-4-31b-it",
-          messages: [{ role: "user", content: "Hello" }],
-        }),
-      }),
-    );
+		expect(response.status).toBe(500);
+		expect(fetchCalled).toBe(false);
+		expect(await response.json()).toEqual({
+			error: {
+				message: "Server configuration error: X_API_KEY is not set",
+				type: "server_error",
+				param: null,
+				code: "missing_x_api_key",
+			},
+		});
+	});
 
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({
-      error: {
-        message: "Unable to reach the upstream chat completion service",
-        type: "server_error",
-        param: null,
-        code: "upstream_unavailable",
-      },
-    });
-  });
+	it("returns an OpenAI-compatible 502 when the upstream is unavailable", async () => {
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				throw new Error("connection refused");
+			},
+		});
 
-  it("passes through streaming responses and the client's Accept header", async () => {
-    let upstreamRequest: Request | undefined;
-    const encoder = new TextEncoder();
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async (input, init) => {
-        upstreamRequest = new Request(input, init);
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
 
-        return new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'),
-              );
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-              controller.close();
-            },
-          }),
-          {
-            headers: {
-              "content-type": "text/event-stream",
-              "x-request-id": "upstream-request-123",
-            },
-          },
-        );
-      },
-    });
+		expect(response.status).toBe(502);
+		expect(await response.json()).toEqual({
+			error: {
+				message: "Unable to reach the upstream chat completion service",
+				type: "server_error",
+				param: null,
+				code: "upstream_unavailable",
+			},
+		});
+	});
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
-          accept: "text/event-stream",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemma-4-31b-it",
-          messages: [{ role: "user", content: "Hello" }],
-          stream: true,
-        }),
-      }),
-    );
+	it("passes through streaming responses and the client's Accept header", async () => {
+		let upstreamRequest: Request | undefined;
+		const encoder = new TextEncoder();
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (input, init) => {
+				upstreamRequest = new Request(input, init);
 
-    expect(upstreamRequest?.headers.get("accept")).toBe("text/event-stream");
-    expect(response.headers.get("content-type")).toBe("text/event-stream");
-    expect(response.headers.get("x-request-id")).toBe("upstream-request-123");
-    expect(await response.text()).toBe(
-      'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\ndata: [DONE]\n\n',
-    );
-  });
+				return new Response(
+					new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					}),
+					{
+						headers: {
+							"content-type": "text/event-stream",
+							"x-request-id": "upstream-request-123",
+						},
+					},
+				);
+			},
+		});
 
-  it("rejects a model outside the supported enum", async () => {
-    let fetchCalled = false;
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async () => {
-        fetchCalled = true;
-        return Response.json({});
-      },
-    });
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${TEST_CLIENT_API_KEY}`,
+					accept: "text/event-stream",
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+					stream: true,
+				}),
+			}),
+		);
 
-    const response = await app.handle(
-      new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: authorizedJsonHeaders,
-        body: JSON.stringify({
-          model: "unsupported-model",
-          messages: [{ role: "user", content: "Hello" }],
-        }),
-      }),
-    );
+		expect(upstreamRequest?.headers.get("accept")).toBe("text/event-stream");
+		expect(response.headers.get("content-type")).toBe("text/event-stream");
+		expect(response.headers.get("x-request-id")).toBe("upstream-request-123");
+		expect(await response.text()).toBe(
+			'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\ndata: [DONE]\n\n',
+		);
+	});
 
-    expect(response.status).toBe(400);
-    expect(fetchCalled).toBe(false);
-    expect(await response.json()).toEqual({
-      error: {
-        message:
-          "Invalid model. Supported models: gemma-4-31b-it, gemma-4-26b-a4b-it, gemma-4-12b-it, gpt-oss-120b-32k, gpt-oss-20b-32k",
-        type: "invalid_request_error",
-        param: "model",
-        code: "model_not_supported",
-      },
-    });
-  });
+	it("rejects a model outside the supported enum", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
 
-  it("accepts every supported model", async () => {
-    const supportedModels = [
-      "gemma-4-31b-it",
-      "gemma-4-26b-a4b-it",
-      "gemma-4-12b-it",
-      "gpt-oss-120b-32k",
-      "gpt-oss-20b-32k",
-    ];
-    const forwardedModels: string[] = [];
-    const app = createTestApp({
-      apiKey: "server-secret",
-      fetcher: async (_input, init) => {
-        const body = JSON.parse(String(init?.body)) as { model: string };
-        forwardedModels.push(body.model);
-        return Response.json({ choices: [] });
-      },
-    });
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "unsupported-model",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
 
-    for (const model of supportedModels) {
-      const response = await app.handle(
-        new Request("http://localhost/v1/chat/completions", {
-          method: "POST",
-          headers: authorizedJsonHeaders,
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "Hello" }],
-          }),
-        }),
-      );
+		expect(response.status).toBe(400);
+		expect(fetchCalled).toBe(false);
+		expect(await response.json()).toEqual({
+			error: {
+				message:
+					"Invalid model. Supported models: gemma-4-31b-it, gemma-4-26b-a4b-it, gemma-4-12b-it, gpt-oss-120b-32k, gpt-oss-20b-32k",
+				type: "invalid_request_error",
+				param: "model",
+				code: "model_not_supported",
+			},
+		});
+	});
 
-      expect(response.status).toBe(200);
-    }
+	it("accepts every supported model", async () => {
+		const supportedModels = [
+			"gemma-4-31b-it",
+			"gemma-4-26b-a4b-it",
+			"gemma-4-12b-it",
+			"gpt-oss-120b-32k",
+			"gpt-oss-20b-32k",
+		];
+		const forwardedModels: string[] = [];
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (_input, init) => {
+				const body = JSON.parse(String(init?.body)) as { model: string };
+				forwardedModels.push(body.model);
+				return Response.json({ choices: [] });
+			},
+		});
 
-    expect(forwardedModels).toEqual(supportedModels);
-  });
+		for (const model of supportedModels) {
+			const response = await app.handle(
+				new Request("http://localhost/v1/chat/completions", {
+					method: "POST",
+					headers: authorizedJsonHeaders,
+					body: JSON.stringify({
+						model,
+						messages: [{ role: "user", content: "Hello" }],
+					}),
+				}),
+			);
+
+			expect(response.status).toBe(200);
+		}
+
+		expect(forwardedModels).toEqual(supportedModels);
+	});
 });

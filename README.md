@@ -12,6 +12,7 @@ POST https://afspod-llm-api.dginfra.gov.tw/projects/392a1838-7af3-4679-8360-c0e2
 
 ```bash
 cp .env.example .env
+cp src/config/api-token.example.ts src/config/api-token.ts
 ```
 
 在 `.env` 填入：
@@ -19,6 +20,14 @@ cp .env.example .env
 ```dotenv
 X_API_KEY=your_api_key
 PORT=3000
+```
+
+在 `src/config/api-token.ts` 加入可使用代理 API 的 Bearer token：
+
+```ts
+export const apiKeys = [
+  "replace-with-a-client-api-key",
+];
 ```
 
 安裝並啟動：

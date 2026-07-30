@@ -31,6 +31,9 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# local API credentials
+/src/config/api-token.ts
+
 # vercel
 .vercel
 
