@@ -36,7 +36,11 @@ describe("OpenAPI documentation", () => {
 										properties: {
 											model: { enum: string[] };
 											stream: { default: boolean; type: string };
-											temperature: { type: string };
+											temperature: {
+												maximum: number;
+												minimum: number;
+												type: string;
+											};
 											reasoning_effort: { enum: string[] };
 											messages: {
 												items: {
@@ -86,6 +90,11 @@ describe("OpenAPI documentation", () => {
 				"application/json"
 			].schema.properties.reasoning_effort.enum,
 		).toEqual(["none", "minimal", "low", "medium", "high", "xhigh"]);
+		expect(
+			document.paths["/v1/chat/completions"].post.requestBody.content[
+				"application/json"
+			].schema.properties.temperature,
+		).toEqual({ type: "number", minimum: 0, maximum: 2 });
 		const messages =
 			document.paths["/v1/chat/completions"].post.requestBody.content[
 				"application/json"

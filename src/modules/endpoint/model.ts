@@ -59,7 +59,7 @@ export const EndpointModel = {
 			model: t.Enum(ChatModel),
 			messages: t.Array(ChatMessageSchema, { minItems: 1 }),
 			stream: t.Optional(t.Boolean({ default: false })),
-			temperature: t.Optional(t.Number()),
+			temperature: t.Optional(t.Number({ minimum: 0, maximum: 2 })),
 			reasoning_effort: t.Optional(t.Enum(ReasoningEffort)),
 		},
 		{ additionalProperties: true },

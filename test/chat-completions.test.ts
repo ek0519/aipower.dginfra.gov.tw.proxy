@@ -200,6 +200,36 @@ describe("POST /v1/chat/completions", () => {
 		);
 	});
 
+	it("rejects temperature outside the inclusive 0 to 2 range", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
+
+		for (const temperature of [-0.01, 2.01]) {
+			const response = await app.handle(
+				new Request("http://localhost/v1/chat/completions", {
+					method: "POST",
+					headers: authorizedJsonHeaders,
+					body: JSON.stringify({
+						model: "gemma-4-31b-it",
+						messages: [{ role: "user", content: "Hello" }],
+						temperature,
+					}),
+				}),
+			);
+
+			expect(response.status).toBe(400);
+			expect((await response.json()).error.code).toBe("invalid_request");
+		}
+
+		expect(fetchCalled).toBe(false);
+	});
+
 	it("returns an OpenAI-compatible error when X_API_KEY is missing", async () => {
 		let fetchCalled = false;
 		const app = createTestApp({
