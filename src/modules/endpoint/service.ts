@@ -1,7 +1,5 @@
 import type { ChatCompletionsBody } from "./model";
 
-
-
 export type Fetcher = (
 	input: string | URL | Request,
 	init?: RequestInit,
@@ -16,6 +14,22 @@ type EndpointServiceOptions = {
 type ForwardChatCompletionInput = {
 	accept?: string;
 	body: ChatCompletionsBody;
+};
+
+const normalizeUpstreamResponse = (response: Response) => {
+	const headers = new Headers(response.headers);
+
+	// Bun fetch transparently decompresses upstream bodies but may preserve the
+	// original encoding metadata, which makes browser clients try to decompress
+	// an already-decoded JSON response a second time.
+	headers.delete("content-encoding");
+	headers.delete("content-length");
+
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
 };
 
 export const createEndpointService = ({
@@ -58,7 +72,10 @@ export const createEndpointService = ({
 				body: JSON.stringify({ ...body, stream: body.stream ?? false }),
 			});
 
-			return { ok: true as const, response };
+			return {
+				ok: true as const,
+				response: normalizeUpstreamResponse(response),
+			};
 		} catch {
 			return {
 				ok: false as const,

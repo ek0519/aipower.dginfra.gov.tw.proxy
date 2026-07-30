@@ -195,6 +195,36 @@ describe("POST /v1/chat/completions", () => {
 		});
 	});
 
+	it("removes stale upstream compression headers", async () => {
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () =>
+				new Response('{"choices":[]}', {
+					headers: {
+						"content-type": "application/json",
+						"content-encoding": "gzip",
+						"content-length": "999",
+					},
+				}),
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-encoding")).toBeNull();
+		expect(response.headers.get("content-length")).toBeNull();
+		expect(await response.text()).toBe('{"choices":[]}');
+	});
+
 	it("supports the original apiKey option as an upstream key alias", async () => {
 		let upstreamRequest: Request | undefined;
 		const app = createTestApp({
