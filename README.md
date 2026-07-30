@@ -38,6 +38,27 @@ bun install
 bun run dev
 ```
 
+## Docker binary hosting
+
+Docker build 會在 build stage 將 Elysia 編譯成 `server` binary，runtime image 不需要安裝 Bun。請先準備 `.env`，再執行：
+
+```bash
+docker compose up --build -d
+```
+
+查看服務狀態與 logs：
+
+```bash
+docker compose ps
+docker compose logs -f api
+```
+
+服務預設會暴露在 `http://localhost:3000`；要停止服務：
+
+```bash
+docker compose down
+```
+
 OpenAPI 文件：
 
 ```text
