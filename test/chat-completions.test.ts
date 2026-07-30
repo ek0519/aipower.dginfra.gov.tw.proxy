@@ -4,7 +4,7 @@ import { createApp } from "../src/index";
 describe("POST /v1/chat/completions", () => {
   it("forwards the OpenAI request with the configured X-API-KEY", async () => {
     const requestBody = {
-      model: "government-model",
+      model: "gemma-4-31b-it",
       messages: [{ role: "user", content: "Hello" }],
       temperature: 0.2,
     };
@@ -55,7 +55,7 @@ describe("POST /v1/chat/completions", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "government-model",
+          model: "gemma-4-31b-it",
           messages: [{ role: "user", content: "Hello" }],
         }),
       }),
@@ -86,7 +86,7 @@ describe("POST /v1/chat/completions", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          model: "government-model",
+          model: "gemma-4-31b-it",
           messages: [{ role: "user", content: "Hello" }],
         }),
       }),
@@ -139,7 +139,7 @@ describe("POST /v1/chat/completions", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: "government-model",
+          model: "gemma-4-31b-it",
           messages: [{ role: "user", content: "Hello" }],
           stream: true,
         }),
@@ -152,5 +152,75 @@ describe("POST /v1/chat/completions", () => {
     expect(await response.text()).toBe(
       'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\ndata: [DONE]\n\n',
     );
+  });
+
+  it("rejects a model outside the supported enum", async () => {
+    let fetchCalled = false;
+    const app = createApp({
+      apiKey: "server-secret",
+      fetcher: async () => {
+        fetchCalled = true;
+        return Response.json({});
+      },
+    });
+
+    const response = await app.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "unsupported-model",
+          messages: [{ role: "user", content: "Hello" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetchCalled).toBe(false);
+    expect(await response.json()).toEqual({
+      error: {
+        message:
+          "Invalid model. Supported models: gemma-4-31b-it, gemma-4-26b-a4b-it, gemma-4-12b-it, gpt-oss-120b-32k, gpt-oss-20b-32k",
+        type: "invalid_request_error",
+        param: "model",
+        code: "model_not_supported",
+      },
+    });
+  });
+
+  it("accepts every supported model", async () => {
+    const supportedModels = [
+      "gemma-4-31b-it",
+      "gemma-4-26b-a4b-it",
+      "gemma-4-12b-it",
+      "gpt-oss-120b-32k",
+      "gpt-oss-20b-32k",
+    ];
+    const forwardedModels: string[] = [];
+    const app = createApp({
+      apiKey: "server-secret",
+      fetcher: async (_input, init) => {
+        const body = JSON.parse(String(init?.body)) as { model: string };
+        forwardedModels.push(body.model);
+        return Response.json({ choices: [] });
+      },
+    });
+
+    for (const model of supportedModels) {
+      const response = await app.handle(
+        new Request("http://localhost/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "Hello" }],
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+    }
+
+    expect(forwardedModels).toEqual(supportedModels);
   });
 });

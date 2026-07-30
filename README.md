@@ -36,13 +36,21 @@ API endpoint：
 POST http://localhost:3000/v1/chat/completions
 ```
 
+支援的 model：
+
+- `gemma-4-31b-it`
+- `gemma-4-26b-a4b-it`
+- `gemma-4-12b-it`
+- `gpt-oss-120b-32k`
+- `gpt-oss-20b-32k`
+
 使用 curl：
 
 ```bash
 curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "<model-name>",
+    "model": "gemma-4-31b-it",
     "messages": [
       {
         "role": "user",
@@ -63,7 +71,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: "<model-name>",
+  model: "gemma-4-31b-it",
   messages: [{ role: "user", content: "你好" }],
 });
 
