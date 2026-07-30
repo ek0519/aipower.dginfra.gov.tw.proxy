@@ -53,7 +53,7 @@ docker compose ps
 docker compose logs -f api
 ```
 
-服務預設會暴露在 `http://localhost:3000`；要停止服務：
+Docker Compose 服務會暴露在 `http://localhost:3001`；要停止服務：
 
 ```bash
 docker compose down
