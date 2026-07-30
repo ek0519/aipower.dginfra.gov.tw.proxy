@@ -1,15 +1,80 @@
-# Elysia with Bun runtime
+# OpenAI-compatible API proxy
 
-## Getting Started
-To get started with this template, simply paste this command into your terminal:
-```bash
-bun create elysia ./elysia-example
+這個 Elysia API 會接受 OpenAI Chat Completions 格式的請求，並代理至：
+
+```text
+POST https://afspod-llm-api.dginfra.gov.tw/projects/392a1838-7af3-4679-8360-c0e24b4bcf8f/api/models/chat/completions
 ```
 
-## Development
-To start the development server run:
+代理伺服器會自動從 `.env` 讀取 `X_API_KEY`，再以 `X-API-KEY` header 傳給上游。呼叫端不需要知道真正的 API key。
+
+## 啟動
+
 ```bash
+cp .env.example .env
+```
+
+在 `.env` 填入：
+
+```dotenv
+X_API_KEY=your_api_key
+PORT=3000
+```
+
+安裝並啟動：
+
+```bash
+bun install
 bun run dev
 ```
 
-Open http://localhost:3000/ with your browser to see the result.
+## 呼叫 API
+
+API endpoint：
+
+```text
+POST http://localhost:3000/v1/chat/completions
+```
+
+使用 curl：
+
+```bash
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "<model-name>",
+    "messages": [
+      {
+        "role": "user",
+        "content": "你好"
+      }
+    ]
+  }'
+```
+
+使用 OpenAI JavaScript SDK：
+
+```ts
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "local-proxy",
+  baseURL: "http://localhost:3000/v1",
+});
+
+const response = await client.chat.completions.create({
+  model: "<model-name>",
+  messages: [{ role: "user", content: "你好" }],
+});
+
+console.log(response.choices[0]?.message);
+```
+
+串流請求同樣支援，只要在 OpenAI request body 加上 `"stream": true`。
+
+## 驗證
+
+```bash
+bun run test
+bun run typecheck
+```
