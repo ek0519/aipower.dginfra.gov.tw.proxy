@@ -11,7 +11,6 @@ type Fetcher = (
 type AppOptions = {
   apiKey?: string;
   fetcher?: Fetcher;
-  upstreamUrl?: string;
 };
 
 const openAIError = (status: number, message: string, code: string) =>
@@ -30,7 +29,6 @@ const openAIError = (status: number, message: string, code: string) =>
 export const createApp = ({
   apiKey = process.env.X_API_KEY,
   fetcher = fetch,
-  upstreamUrl = UPSTREAM_CHAT_COMPLETIONS_URL,
 }: AppOptions = {}) =>
   new Elysia()
     .get("/", () => "Hello Elysia")
@@ -55,7 +53,7 @@ export const createApp = ({
       }
 
       try {
-        return await fetcher(upstreamUrl, {
+        return await fetcher(UPSTREAM_CHAT_COMPLETIONS_URL, {
           method: "POST",
           headers: upstreamHeaders,
           body: JSON.stringify(body),
