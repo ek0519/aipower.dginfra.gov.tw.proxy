@@ -17,6 +17,15 @@ export enum ChatMessageRole {
 	Function = "function",
 }
 
+export enum ReasoningEffort {
+	None = "none",
+	Minimal = "minimal",
+	Low = "low",
+	Medium = "medium",
+	High = "high",
+	XHigh = "xhigh",
+}
+
 const ChatMessageContentPartSchema = t.Object(
 	{
 		type: t.String(),
@@ -41,6 +50,7 @@ const ChatMessageSchema = t.Object(
 export const EndpointModel = {
 	ChatModel,
 	ChatMessageRole,
+	ReasoningEffort,
 	chatMessageContent: ChatMessageContentSchema,
 	chatMessageContentPart: ChatMessageContentPartSchema,
 	chatMessage: ChatMessageSchema,
@@ -48,6 +58,9 @@ export const EndpointModel = {
 		{
 			model: t.Enum(ChatModel),
 			messages: t.Array(ChatMessageSchema, { minItems: 1 }),
+			stream: t.Optional(t.Boolean({ default: false })),
+			temperature: t.Optional(t.Number()),
+			reasoning_effort: t.Optional(t.Enum(ReasoningEffort)),
 		},
 		{ additionalProperties: true },
 	),

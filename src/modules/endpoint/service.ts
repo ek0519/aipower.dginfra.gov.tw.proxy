@@ -45,7 +45,7 @@ export const createEndpointService = ({
 			const response = await fetcher(UPSTREAM_CHAT_COMPLETIONS_URL, {
 				method: "POST",
 				headers: upstreamHeaders,
-				body: JSON.stringify(body),
+				body: JSON.stringify({ ...body, stream: body.stream ?? false }),
 			});
 
 			return { ok: true as const, response };

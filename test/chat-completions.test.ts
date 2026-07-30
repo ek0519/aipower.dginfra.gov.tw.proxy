@@ -133,6 +133,7 @@ describe("POST /v1/chat/completions", () => {
 			model: "gemma-4-31b-it",
 			messages: [{ role: "user", content: "Hello" }],
 			temperature: 0.2,
+			reasoning_effort: "high",
 		};
 		let upstreamRequest: Request | undefined;
 
@@ -166,7 +167,10 @@ describe("POST /v1/chat/completions", () => {
 		expect(upstreamRequest?.headers.get("content-type")).toBe(
 			"application/json",
 		);
-		expect(await upstreamRequest?.json()).toEqual(requestBody);
+		expect(await upstreamRequest?.json()).toEqual({
+			...requestBody,
+			stream: false,
+		});
 	});
 
 	it("supports the original apiKey option as an upstream key alias", async () => {
@@ -306,11 +310,42 @@ describe("POST /v1/chat/completions", () => {
 		);
 
 		expect(upstreamRequest?.headers.get("accept")).toBe("text/event-stream");
+		const forwardedBody = upstreamRequest
+			? ((await upstreamRequest.json()) as { stream?: boolean })
+			: undefined;
+		expect(forwardedBody?.stream).toBe(true);
 		expect(response.headers.get("content-type")).toBe("text/event-stream");
 		expect(response.headers.get("x-request-id")).toBe("upstream-request-123");
 		expect(await response.text()).toBe(
 			'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\ndata: [DONE]\n\n',
 		);
+	});
+
+	it("defaults stream to false when it is omitted", async () => {
+		let upstreamBody: { stream?: boolean } | undefined;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (_input, init) => {
+				upstreamBody = JSON.parse(String(init?.body)) as {
+					stream?: boolean;
+				};
+				return Response.json({ choices: [] });
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(upstreamBody?.stream).toBe(false);
 	});
 
 	it("rejects a model outside the supported enum", async () => {
@@ -422,6 +457,33 @@ describe("POST /v1/chat/completions", () => {
 				body: JSON.stringify({
 					model: "gemma-4-31b-it",
 					messages: [{ role: "user", content: 123 }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(400);
+		expect(fetchCalled).toBe(false);
+		expect((await response.json()).error.code).toBe("invalid_request");
+	});
+
+	it("rejects an unsupported reasoning effort", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+					reasoning_effort: "very-high",
 				}),
 			}),
 		);

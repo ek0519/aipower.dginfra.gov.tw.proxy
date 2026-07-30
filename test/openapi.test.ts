@@ -35,6 +35,9 @@ describe("OpenAPI documentation", () => {
 										required: string[];
 										properties: {
 											model: { enum: string[] };
+											stream: { default: boolean; type: string };
+											temperature: { type: string };
+											reasoning_effort: { enum: string[] };
 											messages: {
 												items: {
 													required: string[];
@@ -73,6 +76,16 @@ describe("OpenAPI documentation", () => {
 			"gpt-oss-120b-32k",
 			"gpt-oss-20b-32k",
 		]);
+		expect(
+			document.paths["/v1/chat/completions"].post.requestBody.content[
+				"application/json"
+			].schema.properties.stream,
+		).toEqual({ type: "boolean", default: false });
+		expect(
+			document.paths["/v1/chat/completions"].post.requestBody.content[
+				"application/json"
+			].schema.properties.reasoning_effort.enum,
+		).toEqual(["none", "minimal", "low", "medium", "high", "xhigh"]);
 		const messages =
 			document.paths["/v1/chat/completions"].post.requestBody.content[
 				"application/json"
