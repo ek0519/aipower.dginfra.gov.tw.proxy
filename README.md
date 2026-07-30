@@ -59,7 +59,7 @@ POST http://localhost:3000/v1/chat/completions
 - `gpt-oss-120b-32k`
 - `gpt-oss-20b-32k`
 
-`messages` 至少需要一筆，`role` 支援 `developer`、`system`、`user`、`assistant`、`tool` 與 `function`。`content` 可使用字串、OpenAI content parts 陣列或 `null`，assistant tool-call 訊息也可省略 `content`。`stream` 預設為 `false`；`temperature` 限制在 `0` 到 `2`（含邊界），並支援 `reasoning_effort`（`none`、`minimal`、`low`、`medium`、`high`、`xhigh`）。
+`messages` 至少需要一筆，請求的 `role` 只支援 `system` 與 `user`。`content` 可使用字串或 OpenAI content parts 陣列。回應端仍可包含 assistant 的 `reasoning` 與 `tool_calls`。`stream` 預設為 `false`；`temperature` 限制在 `0` 到 `2`（含邊界），並支援 `reasoning_effort`（`none`、`minimal`、`low`、`medium`、`high`、`xhigh`）。
 
 使用 curl：
 

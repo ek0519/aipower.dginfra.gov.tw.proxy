@@ -9,12 +9,8 @@ export enum ChatModel {
 }
 
 export enum ChatMessageRole {
-	Developer = "developer",
 	System = "system",
 	User = "user",
-	Assistant = "assistant",
-	Tool = "tool",
-	Function = "function",
 }
 
 export enum ReasoningEffort {

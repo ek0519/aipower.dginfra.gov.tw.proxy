@@ -460,7 +460,7 @@ describe("POST /v1/chat/completions", () => {
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
 					model: "gemma-4-31b-it",
-					messages: [{ role: "customer", content: "Hello" }],
+					messages: [{ role: "assistant", content: "Hello" }],
 				}),
 			}),
 		);
@@ -523,7 +523,7 @@ describe("POST /v1/chat/completions", () => {
 		expect((await response.json()).error.code).toBe("invalid_request");
 	});
 
-	it("accepts content parts and assistant tool-call messages", async () => {
+	it("accepts content parts in system and user messages", async () => {
 		const forwardedMessages: unknown[] = [];
 		const app = createTestApp({
 			upstreamApiKey: "server-secret",
@@ -537,33 +537,16 @@ describe("POST /v1/chat/completions", () => {
 		});
 		const messages = [
 			{
+				role: "system",
+				content: "你是一個搞笑的客服",
+			},
+			{
 				role: "user",
 				content: [
 					{ type: "text", text: "這張圖片是什麼？" },
 					{
 						type: "image_url",
 						image_url: { url: "https://example.com/image.png" },
-					},
-				],
-			},
-			{
-				role: "assistant",
-				content: null,
-				tool_calls: [
-					{
-						id: "call_123",
-						type: "function",
-						function: { name: "lookup", arguments: "{}" },
-					},
-				],
-			},
-			{
-				role: "assistant",
-				tool_calls: [
-					{
-						id: "call_456",
-						type: "function",
-						function: { name: "lookup", arguments: "{}" },
 					},
 				],
 			},
@@ -585,14 +568,7 @@ describe("POST /v1/chat/completions", () => {
 	});
 
 	it("accepts every supported message role", async () => {
-		const roles = [
-			"developer",
-			"system",
-			"user",
-			"assistant",
-			"tool",
-			"function",
-		];
+		const roles = ["system", "user"];
 		const forwardedRoles: string[] = [];
 		const app = createTestApp({
 			upstreamApiKey: "server-secret",
