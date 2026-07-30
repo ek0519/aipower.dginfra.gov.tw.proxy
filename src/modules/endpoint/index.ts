@@ -1,16 +1,42 @@
 import { Elysia } from "elysia";
 import { configuredApiKeys } from "../../config/api-token-loader";
 import { EndpointModel } from "./model";
-import {
-	createEndpointService,
-	type Fetcher,
-	openAIErrorResponse,
-} from "./service";
+import { createEndpointService, type Fetcher } from "./service";
 
 const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
 
+type OpenAIErrorResponseOptions = {
+	code: string;
+	headers?: HeadersInit;
+	message: string;
+	param?: string | null;
+	status: number;
+	type: "invalid_request_error" | "server_error";
+};
+
+const openAIErrorResponse = ({
+	code,
+	headers,
+	message,
+	param = null,
+	status,
+	type,
+}: OpenAIErrorResponseOptions) =>
+	Response.json(
+		{
+			error: {
+				message,
+				type,
+				param,
+				code,
+			},
+		},
+		{ status, headers },
+	);
+
 export type EndpointModuleOptions = {
 	allowedApiKeys?: readonly string[];
+	apiKey?: string;
 	fetcher?: Fetcher;
 	upstreamApiKey?: string;
 };
@@ -20,21 +46,21 @@ const bearerTokenFrom = (authorization: string | null) =>
 
 export const createEndpointModule = ({
 	allowedApiKeys = configuredApiKeys,
+	apiKey,
 	fetcher = fetch,
-	upstreamApiKey = process.env.X_API_KEY,
+	upstreamApiKey,
 }: EndpointModuleOptions = {}) => {
 	const allowedApiKeySet = new Set(allowedApiKeys);
 	const endpointService = createEndpointService({
 		fetcher,
-		upstreamApiKey,
+		upstreamApiKey: upstreamApiKey ?? apiKey ?? process.env.X_API_KEY,
 	});
 
 	return new Elysia({ name: "module.endpoint" })
 		.onRequest(({ request }) => {
-			if (
-				request.method !== "POST" ||
-				new URL(request.url).pathname !== CHAT_COMPLETIONS_PATH
-			) {
+			const pathname = new URL(request.url).pathname.replace(/\/+$/, "");
+
+			if (request.method !== "POST" || pathname !== CHAT_COMPLETIONS_PATH) {
 				return;
 			}
 
@@ -50,24 +76,68 @@ export const createEndpointModule = ({
 				});
 			}
 		})
-		.onError(({ code }) => {
+		.onError(({ code, error }) => {
 			if (code === "VALIDATION") {
+				const value = (error as { value?: unknown }).value;
+				const model =
+					typeof value === "object" &&
+					value !== null &&
+					"model" in value &&
+					typeof value.model === "string"
+						? value.model
+						: undefined;
+
+				if (
+					model !== undefined &&
+					!Object.values(EndpointModel.ChatModel).includes(
+						model as (typeof EndpointModel.ChatModel)[keyof typeof EndpointModel.ChatModel],
+					)
+				) {
+					return openAIErrorResponse({
+						status: 400,
+						message: `Invalid model. Supported models: ${Object.values(EndpointModel.ChatModel).join(", ")}`,
+						type: "invalid_request_error",
+						param: "model",
+						code: "model_not_supported",
+					});
+				}
+
 				return openAIErrorResponse({
 					status: 400,
-					message: `Invalid model. Supported models: ${Object.values(EndpointModel.ChatModel).join(", ")}`,
+					message: "Invalid request body",
 					type: "invalid_request_error",
-					param: "model",
-					code: "model_not_supported",
+					code: "invalid_request",
 				});
 			}
 		})
 		.post(
 			CHAT_COMPLETIONS_PATH,
-			({ body, headers }) =>
-				endpointService.forwardChatCompletion({
+			async ({ body, headers }) => {
+				const result = await endpointService.forwardChatCompletion({
 					body,
 					accept: headers.accept,
-				}),
+				});
+
+				if (result.ok) {
+					return result.response;
+				}
+
+				if (result.reason === "missing_upstream_api_key") {
+					return openAIErrorResponse({
+						status: 500,
+						message: "Server configuration error: X_API_KEY is not set",
+						type: "server_error",
+						code: "missing_x_api_key",
+					});
+				}
+
+				return openAIErrorResponse({
+					status: 502,
+					message: "Unable to reach the upstream chat completion service",
+					type: "server_error",
+					code: "upstream_unavailable",
+				});
+			},
 			{
 				body: EndpointModel.chatCompletionsBody,
 				detail: {

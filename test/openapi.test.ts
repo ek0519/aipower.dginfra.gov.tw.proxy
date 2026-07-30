@@ -12,7 +12,7 @@ describe("OpenAPI documentation", () => {
 		expect(await response.text()).toContain("<!doctype html>");
 	});
 
-	it("documents the supported model enum and Bearer authentication", async () => {
+	it("documents the request enums and Bearer authentication", async () => {
 		const response = await createApp({
 			upstreamApiKey: "server-secret",
 		}).handle(new Request("http://localhost/docs/json"));
@@ -32,8 +32,24 @@ describe("OpenAPI documentation", () => {
 							content: {
 								"application/json": {
 									schema: {
+										required: string[];
 										properties: {
 											model: { enum: string[] };
+											messages: {
+												items: {
+													required: string[];
+													properties: {
+														role: { enum: string[] };
+														content: {
+															anyOf: Array<{
+																type: string;
+															}>;
+														};
+													};
+												};
+												minItems: number;
+												type: string;
+											};
 										};
 									};
 								};
@@ -57,6 +73,29 @@ describe("OpenAPI documentation", () => {
 			"gpt-oss-120b-32k",
 			"gpt-oss-20b-32k",
 		]);
+		const messages =
+			document.paths["/v1/chat/completions"].post.requestBody.content[
+				"application/json"
+			].schema.properties.messages;
+		expect(
+			document.paths["/v1/chat/completions"].post.requestBody.content[
+				"application/json"
+			].schema.required,
+		).toContain("messages");
+		expect(messages.type).toBe("array");
+		expect(messages.minItems).toBe(1);
+		expect(messages.items.required).toEqual(["role"]);
+		expect(messages.items.properties.role.enum).toEqual([
+			"developer",
+			"system",
+			"user",
+			"assistant",
+			"tool",
+			"function",
+		]);
+		expect(
+			messages.items.properties.content.anyOf.map(({ type }) => type),
+		).toEqual(["string", "array", "null"]);
 		expect(document.components.securitySchemes.bearerAuth).toEqual({
 			type: "http",
 			scheme: "bearer",

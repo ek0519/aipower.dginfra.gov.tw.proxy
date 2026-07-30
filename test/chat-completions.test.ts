@@ -102,6 +102,32 @@ describe("POST /v1/chat/completions", () => {
 		});
 	});
 
+	it("rejects an unauthenticated request with a trailing slash", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions/", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(401);
+		expect(fetchCalled).toBe(false);
+		expect((await response.json()).error.code).toBe("invalid_api_key");
+	});
+
 	it("forwards the OpenAI request with the configured X-API-KEY", async () => {
 		const requestBody = {
 			model: "gemma-4-31b-it",
@@ -141,6 +167,33 @@ describe("POST /v1/chat/completions", () => {
 			"application/json",
 		);
 		expect(await upstreamRequest?.json()).toEqual(requestBody);
+	});
+
+	it("supports the original apiKey option as an upstream key alias", async () => {
+		let upstreamRequest: Request | undefined;
+		const app = createTestApp({
+			apiKey: "legacy-server-secret",
+			fetcher: async (input, init) => {
+				upstreamRequest = new Request(input, init);
+				return Response.json({ choices: [] });
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: "Hello" }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(upstreamRequest?.headers.get("x-api-key")).toBe(
+			"legacy-server-secret",
+		);
 	});
 
 	it("returns an OpenAI-compatible error when X_API_KEY is missing", async () => {
@@ -292,6 +345,190 @@ describe("POST /v1/chat/completions", () => {
 				code: "model_not_supported",
 			},
 		});
+	});
+
+	it("rejects a request without messages", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(400);
+		expect(fetchCalled).toBe(false);
+		expect(await response.json()).toEqual({
+			error: {
+				message: "Invalid request body",
+				type: "invalid_request_error",
+				param: null,
+				code: "invalid_request",
+			},
+		});
+	});
+
+	it("rejects a message role outside the supported enum", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "customer", content: "Hello" }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(400);
+		expect(fetchCalled).toBe(false);
+		expect((await response.json()).error.code).toBe("invalid_request");
+	});
+
+	it("rejects a message with an invalid content shape", async () => {
+		let fetchCalled = false;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async () => {
+				fetchCalled = true;
+				return Response.json({});
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages: [{ role: "user", content: 123 }],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(400);
+		expect(fetchCalled).toBe(false);
+		expect((await response.json()).error.code).toBe("invalid_request");
+	});
+
+	it("accepts content parts and assistant tool-call messages", async () => {
+		const forwardedMessages: unknown[] = [];
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (_input, init) => {
+				const body = JSON.parse(String(init?.body)) as {
+					messages: unknown[];
+				};
+				forwardedMessages.push(...body.messages);
+				return Response.json({ choices: [] });
+			},
+		});
+		const messages = [
+			{
+				role: "user",
+				content: [
+					{ type: "text", text: "這張圖片是什麼？" },
+					{
+						type: "image_url",
+						image_url: { url: "https://example.com/image.png" },
+					},
+				],
+			},
+			{
+				role: "assistant",
+				content: null,
+				tool_calls: [
+					{
+						id: "call_123",
+						type: "function",
+						function: { name: "lookup", arguments: "{}" },
+					},
+				],
+			},
+			{
+				role: "assistant",
+				tool_calls: [
+					{
+						id: "call_456",
+						type: "function",
+						function: { name: "lookup", arguments: "{}" },
+					},
+				],
+			},
+		];
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages,
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(forwardedMessages).toEqual(messages);
+	});
+
+	it("accepts every supported message role", async () => {
+		const roles = [
+			"developer",
+			"system",
+			"user",
+			"assistant",
+			"tool",
+			"function",
+		];
+		const forwardedRoles: string[] = [];
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (_input, init) => {
+				const body = JSON.parse(String(init?.body)) as {
+					messages: Array<{ role: string }>;
+				};
+				forwardedRoles.push(body.messages[0].role);
+				return Response.json({ choices: [] });
+			},
+		});
+
+		for (const role of roles) {
+			const response = await app.handle(
+				new Request("http://localhost/v1/chat/completions", {
+					method: "POST",
+					headers: authorizedJsonHeaders,
+					body: JSON.stringify({
+						model: "gemma-4-31b-it",
+						messages: [{ role, content: "Hello" }],
+					}),
+				}),
+			);
+
+			expect(response.status).toBe(200);
+		}
+
+		expect(forwardedRoles).toEqual(roles);
 	});
 
 	it("accepts every supported model", async () => {

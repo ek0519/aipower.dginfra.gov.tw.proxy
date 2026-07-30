@@ -8,35 +8,6 @@ export type Fetcher = (
 	init?: RequestInit,
 ) => Promise<Response>;
 
-type OpenAIErrorResponseOptions = {
-	code: string;
-	headers?: HeadersInit;
-	message: string;
-	param?: string | null;
-	status: number;
-	type: "invalid_request_error" | "server_error";
-};
-
-export const openAIErrorResponse = ({
-	code,
-	headers,
-	message,
-	param = null,
-	status,
-	type,
-}: OpenAIErrorResponseOptions) =>
-	Response.json(
-		{
-			error: {
-				message,
-				type,
-				param,
-				code,
-			},
-		},
-		{ status, headers },
-	);
-
 type EndpointServiceOptions = {
 	fetcher: Fetcher;
 	upstreamApiKey?: string;
@@ -55,12 +26,10 @@ export const createEndpointService = ({
 		const configuredUpstreamApiKey = upstreamApiKey?.trim();
 
 		if (!configuredUpstreamApiKey) {
-			return openAIErrorResponse({
-				status: 500,
-				message: "Server configuration error: X_API_KEY is not set",
-				type: "server_error",
-				code: "missing_x_api_key",
-			});
+			return {
+				ok: false as const,
+				reason: "missing_upstream_api_key" as const,
+			};
 		}
 
 		const upstreamHeaders = new Headers({
@@ -73,18 +42,18 @@ export const createEndpointService = ({
 		}
 
 		try {
-			return await fetcher(UPSTREAM_CHAT_COMPLETIONS_URL, {
+			const response = await fetcher(UPSTREAM_CHAT_COMPLETIONS_URL, {
 				method: "POST",
 				headers: upstreamHeaders,
 				body: JSON.stringify(body),
 			});
+
+			return { ok: true as const, response };
 		} catch {
-			return openAIErrorResponse({
-				status: 502,
-				message: "Unable to reach the upstream chat completion service",
-				type: "server_error",
-				code: "upstream_unavailable",
-			});
+			return {
+				ok: false as const,
+				reason: "upstream_unavailable" as const,
+			};
 		}
 	},
 });

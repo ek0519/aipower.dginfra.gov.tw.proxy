@@ -59,6 +59,8 @@ POST http://localhost:3000/v1/chat/completions
 - `gpt-oss-120b-32k`
 - `gpt-oss-20b-32k`
 
+`messages` 至少需要一筆，`role` 支援 `developer`、`system`、`user`、`assistant`、`tool` 與 `function`。`content` 可使用字串、OpenAI content parts 陣列或 `null`，assistant tool-call 訊息也可省略 `content`。
+
 使用 curl：
 
 ```bash
