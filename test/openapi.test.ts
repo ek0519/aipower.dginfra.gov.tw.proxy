@@ -125,5 +125,16 @@ describe("OpenAPI documentation", () => {
 		expect(document.paths["/v1/chat/completions"].post.security).toEqual([
 			{ bearerAuth: [] },
 		]);
+		const documentedResponse = (
+			document.paths["/v1/chat/completions"].post as unknown as {
+				responses: Record<
+					string,
+					{
+						content: Record<string, { schema: unknown }>;
+					}
+				>;
+			}
+		).responses["200"].content["application/json"].schema;
+		expect(JSON.stringify(documentedResponse)).toContain('"reasoning"');
 	});
 });

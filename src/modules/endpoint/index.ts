@@ -140,6 +140,9 @@ export const createEndpointModule = ({
 			},
 			{
 				body: EndpointModel.chatCompletionsBody,
+				response: {
+					200: EndpointModel.chatCompletionsResponse,
+				},
 				detail: {
 					tags: ["chat"],
 					summary: "Chat completions",

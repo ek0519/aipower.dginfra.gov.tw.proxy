@@ -26,6 +26,14 @@ export enum ReasoningEffort {
 	XHigh = "xhigh",
 }
 
+export enum ChatCompletionFinishReason {
+	Stop = "stop",
+	Length = "length",
+	ToolCalls = "tool_calls",
+	ContentFilter = "content_filter",
+	FunctionCall = "function_call",
+}
+
 const ChatMessageContentPartSchema = t.Object(
 	{
 		type: t.String(),
@@ -47,13 +55,79 @@ const ChatMessageSchema = t.Object(
 	{ additionalProperties: true },
 );
 
+const ChatCompletionFunctionSchema = t.Object(
+	{
+		name: t.String(),
+		arguments: t.String(),
+	},
+	{ additionalProperties: true },
+);
+
+const ChatCompletionToolCallSchema = t.Object(
+	{
+		id: t.String(),
+		type: t.String(),
+		function: t.Optional(ChatCompletionFunctionSchema),
+	},
+	{ additionalProperties: true },
+);
+
+const ChatCompletionMessageSchema = t.Object(
+	{
+		role: t.Literal("assistant"),
+		content: t.Optional(ChatMessageContentSchema),
+		reasoning: t.Optional(t.String()),
+		tool_calls: t.Optional(t.Array(ChatCompletionToolCallSchema)),
+	},
+	{ additionalProperties: true },
+);
+
+const ChatCompletionChoiceSchema = t.Object(
+	{
+		index: t.Number(),
+		message: ChatCompletionMessageSchema,
+		logprobs: t.Optional(t.Unknown()),
+		finish_reason: t.Union([t.Enum(ChatCompletionFinishReason), t.Null()]),
+		stop_reason: t.Optional(t.Union([t.Number(), t.String(), t.Null()])),
+	},
+	{ additionalProperties: true },
+);
+
+const ChatCompletionUsageSchema = t.Object(
+	{
+		prompt_tokens: t.Number(),
+		total_tokens: t.Number(),
+		completion_tokens: t.Number(),
+	},
+	{ additionalProperties: true },
+);
+
+const ChatCompletionsResponseSchema = t.Object(
+	{
+		id: t.String(),
+		object: t.Literal("chat.completion"),
+		created: t.Number(),
+		model: t.String(),
+		system_fingerprint: t.Optional(t.Union([t.String(), t.Null()])),
+		choices: t.Array(ChatCompletionChoiceSchema),
+		usage: t.Optional(t.Union([ChatCompletionUsageSchema, t.Null()])),
+		total_time_taken: t.Optional(t.String()),
+	},
+	{ additionalProperties: true },
+);
+
 export const EndpointModel = {
 	ChatModel,
 	ChatMessageRole,
 	ReasoningEffort,
+	ChatCompletionFinishReason,
 	chatMessageContent: ChatMessageContentSchema,
 	chatMessageContentPart: ChatMessageContentPartSchema,
 	chatMessage: ChatMessageSchema,
+	chatCompletionMessage: ChatCompletionMessageSchema,
+	chatCompletionChoice: ChatCompletionChoiceSchema,
+	chatCompletionUsage: ChatCompletionUsageSchema,
+	chatCompletionsResponse: ChatCompletionsResponseSchema,
 	chatCompletionsBody: t.Object(
 		{
 			model: t.Enum(ChatModel),
@@ -67,6 +141,18 @@ export const EndpointModel = {
 } as const;
 
 export type ChatMessage = Static<typeof EndpointModel.chatMessage>;
+export type ChatCompletionMessage = Static<
+	typeof EndpointModel.chatCompletionMessage
+>;
+export type ChatCompletionChoice = Static<
+	typeof EndpointModel.chatCompletionChoice
+>;
+export type ChatCompletionUsage = Static<
+	typeof EndpointModel.chatCompletionUsage
+>;
+export type ChatCompletionsResponse = Static<
+	typeof EndpointModel.chatCompletionsResponse
+>;
 export type ChatCompletionsBody = Static<
 	typeof EndpointModel.chatCompletionsBody
 >;
