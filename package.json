@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@elysia/openapi": "^1.4.15",
     "elysia": "latest"
   },
   "devDependencies": {

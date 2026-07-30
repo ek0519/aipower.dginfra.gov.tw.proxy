@@ -28,6 +28,12 @@ bun install
 bun run dev
 ```
 
+OpenAPI 文件：
+
+```text
+http://localhost:3000/docs
+```
+
 ## 呼叫 API
 
 API endpoint：

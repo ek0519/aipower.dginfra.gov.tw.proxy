@@ -1,4 +1,5 @@
 import { Elysia, t, type Static } from "elysia";
+import { openapi } from "@elysia/openapi";
 
 const UPSTREAM_CHAT_COMPLETIONS_URL =
   "https://afspod-llm-api.dginfra.gov.tw/projects/392a1838-7af3-4679-8360-c0e24b4bcf8f/api/models/chat/completions";
@@ -48,6 +49,7 @@ export const createApp = ({
   fetcher = fetch,
 }: AppOptions = {}) =>
   new Elysia()
+    .use(openapi({ path: "/docs" }))
     .onError(({ code }) => {
       if (code === "VALIDATION") {
         return Response.json(
