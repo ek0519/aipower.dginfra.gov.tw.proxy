@@ -1,34 +1,35 @@
 # OpenAI-compatible API proxy
 
+這是 115年「數位產業跨域軟體基盤暨數位服務躍升計畫」第一梯次算力平台使用的 OpenAI-compatible 代理。
+
 這個 Elysia API 會接受 OpenAI Chat Completions 格式的請求，並代理至：
 
 ```text
-POST https://afspod-llm-api.dginfra.gov.tw/projects/392a1838-7af3-4679-8360-c0e24b4bcf8f/api/models/chat/completions
+POST <government-upstream-chat-completions-url>
 ```
 
-代理伺服器會自動從 `.env` 讀取 `X_API_KEY`，再以 `X-API-KEY` header 傳給上游。呼叫端不需要知道真正的 API key。
+代理伺服器會自動從 `.env` 讀取 `X_API_KEY` 與 `UPSTREAM_CHAT_COMPLETIONS_URL`，分別用來存取上游 API 與指定上游 chat completions 端點。呼叫端不需要知道真正的 API key。
 
 ## 啟動
 
 ```bash
 cp .env.example .env
-cp src/config/api-token.example.ts src/config/api-token.ts
 ```
 
 在 `.env` 填入：
 
 ```dotenv
 X_API_KEY=your_api_key
+UPSTREAM_CHAT_COMPLETIONS_URL=<government-upstream-chat-completions-url>
+BEARER_TOKEN=your_client_bearer_token
 PORT=3000
 ```
 
-在 `src/config/api-token.ts` 加入可使用代理 API 的 Bearer token：
+這三個變數的用途如下：
 
-```ts
-export const apiKeys = [
-  "replace-with-a-client-api-key",
-];
-```
+- `X_API_KEY`：政府端給的金鑰
+- `UPSTREAM_CHAT_COMPLETIONS_URL`：政府的端點
+- `BEARER_TOKEN`：自己用來呼叫代理服務的金鑰
 
 安裝並啟動：
 
@@ -42,6 +43,8 @@ OpenAPI 文件：
 ```text
 http://localhost:3000/docs
 ```
+
+`/docs` 會顯示這個代理的 API 文件；`/v1/chat/completions` 的請求格式、Bearer 認證，以及相關設定概念都可以在這裡對照查看。
 
 ## 呼叫 API
 
@@ -65,7 +68,7 @@ POST http://localhost:3000/v1/chat/completions
 
 ```bash
 curl http://localhost:3000/v1/chat/completions \
-  -H "Authorization: Bearer <api-key-from-api-token.ts>" \
+  -H "Authorization: Bearer <api-key-from-env>" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gemma-4-31b-it",
@@ -84,7 +87,7 @@ curl http://localhost:3000/v1/chat/completions \
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "<api-key-from-api-token.ts>",
+  apiKey: "<api-key-from-env>",
   baseURL: "http://localhost:3000/v1",
 });
 
@@ -96,7 +99,7 @@ const response = await client.chat.completions.create({
 console.log(response.choices[0]?.message);
 ```
 
-可用的 Bearer token 定義在 `src/config/api-token.ts` 的 `apiKeys`。缺少 token 或 token 不在清單內時，API 會回傳 HTTP 401 與 OpenAI-compatible `invalid_api_key` error。
+可用的 Bearer token 來自 `.env` 的 `BEARER_TOKEN`。缺少 token 或 token 不相符時，API 會回傳 HTTP 401 與 OpenAI-compatible `invalid_api_key` error。
 
 串流請求同樣支援，只要在 OpenAI request body 加上 `"stream": true`。
 

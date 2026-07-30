@@ -1,7 +1,6 @@
 import type { ChatCompletionsBody } from "./model";
 
-const UPSTREAM_CHAT_COMPLETIONS_URL =
-	"https://afspod-llm-api.dginfra.gov.tw/projects/392a1838-7af3-4679-8360-c0e24b4bcf8f/api/models/chat/completions";
+
 
 export type Fetcher = (
 	input: string | URL | Request,
@@ -11,6 +10,7 @@ export type Fetcher = (
 type EndpointServiceOptions = {
 	fetcher: Fetcher;
 	upstreamApiKey?: string;
+	upstreamChatCompletionsUrl?: string;
 };
 
 type ForwardChatCompletionInput = {
@@ -21,14 +21,24 @@ type ForwardChatCompletionInput = {
 export const createEndpointService = ({
 	fetcher,
 	upstreamApiKey,
+	upstreamChatCompletionsUrl,
 }: EndpointServiceOptions) => ({
 	async forwardChatCompletion({ accept, body }: ForwardChatCompletionInput) {
 		const configuredUpstreamApiKey = upstreamApiKey?.trim();
+		const configuredUpstreamChatCompletionsUrl =
+			upstreamChatCompletionsUrl?.trim();
 
 		if (!configuredUpstreamApiKey) {
 			return {
 				ok: false as const,
 				reason: "missing_upstream_api_key" as const,
+			};
+		}
+
+		if (!configuredUpstreamChatCompletionsUrl) {
+			return {
+				ok: false as const,
+				reason: "missing_upstream_chat_completions_url" as const,
 			};
 		}
 
@@ -42,7 +52,7 @@ export const createEndpointService = ({
 		}
 
 		try {
-			const response = await fetcher(UPSTREAM_CHAT_COMPLETIONS_URL, {
+			const response = await fetcher(configuredUpstreamChatCompletionsUrl, {
 				method: "POST",
 				headers: upstreamHeaders,
 				body: JSON.stringify({ ...body, stream: body.stream ?? false }),

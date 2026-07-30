@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createApp } from "../src/index";
 
 const TEST_CLIENT_API_KEY = "test-client-api-key";
@@ -7,11 +7,33 @@ const authorizedJsonHeaders = {
 	"content-type": "application/json",
 };
 type TestAppOptions = NonNullable<Parameters<typeof createApp>[0]>;
-const createTestApp = (options: TestAppOptions = {}) =>
-	createApp({
-		...options,
-		allowedApiKeys: [TEST_CLIENT_API_KEY],
-	});
+const createTestApp = (options: TestAppOptions = {}) => createApp(options);
+
+const originalBearerToken = process.env.BEARER_TOKEN;
+const originalUpstreamChatCompletionsUrl =
+	process.env.UPSTREAM_CHAT_COMPLETIONS_URL;
+
+beforeEach(() => {
+	process.env.BEARER_TOKEN = TEST_CLIENT_API_KEY;
+	process.env.UPSTREAM_CHAT_COMPLETIONS_URL =
+		"https://example.test/v1/chat/completions";
+});
+
+afterEach(() => {
+	if (originalBearerToken === undefined) {
+		delete process.env.BEARER_TOKEN;
+	} else {
+		process.env.BEARER_TOKEN = originalBearerToken;
+	}
+
+	if (originalUpstreamChatCompletionsUrl === undefined) {
+		delete process.env.UPSTREAM_CHAT_COMPLETIONS_URL;
+		return;
+	}
+
+	process.env.UPSTREAM_CHAT_COMPLETIONS_URL =
+		originalUpstreamChatCompletionsUrl;
+});
 
 describe("POST /v1/chat/completions", () => {
 	it("rejects a request without Bearer authentication", async () => {
@@ -66,7 +88,7 @@ describe("POST /v1/chat/completions", () => {
 		expect((await response.json()).error.code).toBe("invalid_api_key");
 	});
 
-	it("rejects a Bearer token outside the apiKeys allow-list", async () => {
+	it("rejects a Bearer token outside the configured token", async () => {
 		let fetchCalled = false;
 		const app = createTestApp({
 			upstreamApiKey: "server-secret",

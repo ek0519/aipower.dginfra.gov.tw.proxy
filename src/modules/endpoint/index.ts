@@ -1,5 +1,4 @@
 import { Elysia } from "elysia";
-import { configuredApiKeys } from "../../config/api-token-loader";
 import { EndpointModel } from "./model";
 import { createEndpointService, type Fetcher } from "./service";
 
@@ -35,25 +34,27 @@ const openAIErrorResponse = ({
 	);
 
 export type EndpointModuleOptions = {
-	allowedApiKeys?: readonly string[];
 	apiKey?: string;
 	fetcher?: Fetcher;
 	upstreamApiKey?: string;
+	upstreamChatCompletionsUrl?: string;
 };
 
 const bearerTokenFrom = (authorization: string | null) =>
 	authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
 
 export const createEndpointModule = ({
-	allowedApiKeys = configuredApiKeys,
 	apiKey,
 	fetcher = fetch,
 	upstreamApiKey,
+	upstreamChatCompletionsUrl,
 }: EndpointModuleOptions = {}) => {
-	const allowedApiKeySet = new Set(allowedApiKeys);
+	const configuredBearerToken = process.env.BEARER_TOKEN;
 	const endpointService = createEndpointService({
 		fetcher,
 		upstreamApiKey: upstreamApiKey ?? apiKey ?? process.env.X_API_KEY,
+		upstreamChatCompletionsUrl:
+			upstreamChatCompletionsUrl ?? process.env.UPSTREAM_CHAT_COMPLETIONS_URL,
 	});
 
 	return new Elysia({ name: "module.endpoint" })
@@ -66,7 +67,7 @@ export const createEndpointModule = ({
 
 			const bearerToken = bearerTokenFrom(request.headers.get("authorization"));
 
-			if (!bearerToken || !allowedApiKeySet.has(bearerToken)) {
+			if (!bearerToken || bearerToken !== configuredBearerToken) {
 				return openAIErrorResponse({
 					status: 401,
 					message: "Invalid or missing API key",
@@ -128,6 +129,16 @@ export const createEndpointModule = ({
 						message: "Server configuration error: X_API_KEY is not set",
 						type: "server_error",
 						code: "missing_x_api_key",
+					});
+				}
+
+				if (result.reason === "missing_upstream_chat_completions_url") {
+					return openAIErrorResponse({
+						status: 500,
+						message:
+							"Server configuration error: UPSTREAM_CHAT_COMPLETIONS_URL is not set",
+						type: "server_error",
+						code: "missing_upstream_chat_completions_url",
 					});
 				}
 
