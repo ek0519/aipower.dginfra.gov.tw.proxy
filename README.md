@@ -67,6 +67,14 @@ http://localhost:3000/docs
 
 `/docs` 會顯示這個代理的 API 文件；`/v1/chat/completions` 的請求格式、Bearer 認證，以及相關設定概念都可以在這裡對照查看。
 
+模型列表 endpoint：
+
+```text
+GET http://localhost:3000/v1/models
+```
+
+這個 endpoint 會以 OpenAI-compatible 格式列出目前支援的模型，同樣需要 `Authorization: Bearer <api-key>`。
+
 ## 呼叫 API
 
 API endpoint：
