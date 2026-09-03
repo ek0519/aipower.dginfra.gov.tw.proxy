@@ -135,4 +135,31 @@ describe("OpenAPI documentation", () => {
 		).responses["200"].content["application/json"].schema;
 		expect(JSON.stringify(documentedResponse)).toContain('"reasoning"');
 	});
+
+	it("documents the model list endpoint", async () => {
+		const response = await createApp().handle(
+			new Request("http://localhost/docs/json"),
+		);
+		const document = (await response.json()) as {
+			paths: Record<
+				string,
+				{
+					get?: {
+						security?: unknown;
+						responses?: Record<string, unknown>;
+					};
+				}
+			>;
+		};
+		const modelsRoute = document.paths["/v1/models"].get;
+
+		expect(response.status).toBe(200);
+		expect(modelsRoute?.security).toEqual([{ bearerAuth: [] }]);
+		expect(JSON.stringify(modelsRoute?.responses?.["200"])).toContain(
+			'"object"',
+		);
+		expect(JSON.stringify(modelsRoute?.responses?.["200"])).toContain(
+			'"data"',
+		);
+	});
 });
