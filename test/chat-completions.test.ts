@@ -512,7 +512,7 @@ describe("POST /v1/chat/completions", () => {
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
 					model: "gemma-4-31b-it",
-					messages: [{ role: "assistant", content: "Hello" }],
+					messages: [{ role: "developer", content: "Hello" }],
 				}),
 			}),
 		);
@@ -620,7 +620,7 @@ describe("POST /v1/chat/completions", () => {
 	});
 
 	it("accepts every supported message role", async () => {
-		const roles = ["system", "user"];
+		const roles = ["system", "user", "assistant", "tool"];
 		const forwardedRoles: string[] = [];
 		const app = createTestApp({
 			upstreamApiKey: "server-secret",
@@ -649,6 +649,58 @@ describe("POST /v1/chat/completions", () => {
 		}
 
 		expect(forwardedRoles).toEqual(roles);
+	});
+
+	it("accepts assistant tool calls and tool results", async () => {
+		const messages = [
+			{
+				role: "user",
+				content: "台北天氣如何？",
+			},
+			{
+				role: "assistant",
+				content: null,
+				tool_calls: [
+					{
+						id: "call_weather",
+						type: "function",
+						function: {
+							name: "get_weather",
+							arguments: '{"city":"Taipei"}',
+						},
+					},
+				],
+			},
+			{
+				role: "tool",
+				tool_call_id: "call_weather",
+				content: '{"temperature": 25}',
+			},
+		];
+		let forwardedMessages: unknown;
+		const app = createTestApp({
+			upstreamApiKey: "server-secret",
+			fetcher: async (_input, init) => {
+				forwardedMessages = (JSON.parse(String(init?.body)) as {
+					messages: unknown;
+				}).messages;
+				return Response.json({ choices: [] });
+			},
+		});
+
+		const response = await app.handle(
+			new Request("http://localhost/v1/chat/completions", {
+				method: "POST",
+				headers: authorizedJsonHeaders,
+				body: JSON.stringify({
+					model: "gemma-4-31b-it",
+					messages,
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(forwardedMessages).toEqual(messages);
 	});
 
 	it("accepts every supported model", async () => {

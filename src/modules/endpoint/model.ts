@@ -11,6 +11,8 @@ export enum ChatModel {
 export enum ChatMessageRole {
 	System = "system",
 	User = "user",
+	Assistant = "assistant",
+	Tool = "tool",
 }
 
 export enum ReasoningEffort {
@@ -43,14 +45,6 @@ const ChatMessageContentSchema = t.Union([
 	t.Null(),
 ]);
 
-const ChatMessageSchema = t.Object(
-	{
-		role: t.Enum(ChatMessageRole),
-		content: t.Optional(ChatMessageContentSchema),
-	},
-	{ additionalProperties: true },
-);
-
 const ChatCompletionFunctionSchema = t.Object(
 	{
 		name: t.String(),
@@ -64,6 +58,16 @@ const ChatCompletionToolCallSchema = t.Object(
 		id: t.String(),
 		type: t.String(),
 		function: t.Optional(ChatCompletionFunctionSchema),
+	},
+	{ additionalProperties: true },
+);
+
+const ChatMessageSchema = t.Object(
+	{
+		role: t.Enum(ChatMessageRole),
+		content: t.Optional(ChatMessageContentSchema),
+		tool_call_id: t.Optional(t.String()),
+		tool_calls: t.Optional(t.Array(ChatCompletionToolCallSchema)),
 	},
 	{ additionalProperties: true },
 );

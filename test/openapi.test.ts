@@ -107,7 +107,12 @@ describe("OpenAPI documentation", () => {
 		expect(messages.type).toBe("array");
 		expect(messages.minItems).toBe(1);
 		expect(messages.items.required).toEqual(["role"]);
-		expect(messages.items.properties.role.enum).toEqual(["system", "user"]);
+		expect(messages.items.properties.role.enum).toEqual([
+			"system",
+			"user",
+			"assistant",
+			"tool",
+		]);
 		expect(
 			messages.items.properties.content.anyOf.map(({ type }) => type),
 		).toEqual(["string", "array", "null"]);
