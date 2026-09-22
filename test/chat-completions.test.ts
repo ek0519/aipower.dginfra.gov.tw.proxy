@@ -51,7 +51,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -106,7 +106,7 @@ describe("POST /v1/chat/completions", () => {
 					"content-type": "application/json",
 				},
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -139,7 +139,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -152,7 +152,7 @@ describe("POST /v1/chat/completions", () => {
 
 	it("forwards the OpenAI request with the configured X-API-KEY", async () => {
 		const requestBody = {
-			model: "gemma-4-31b-it",
+			model: "bge-m3",
 			messages: [{ role: "user", content: "Hello" }],
 			temperature: 0.2,
 			reasoning_effort: "high",
@@ -213,7 +213,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -240,7 +240,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -268,7 +268,7 @@ describe("POST /v1/chat/completions", () => {
 					method: "POST",
 					headers: authorizedJsonHeaders,
 					body: JSON.stringify({
-						model: "gemma-4-31b-it",
+						model: "bge-m3",
 						messages: [{ role: "user", content: "Hello" }],
 						temperature,
 					}),
@@ -297,7 +297,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -328,7 +328,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -384,7 +384,7 @@ describe("POST /v1/chat/completions", () => {
 					"content-type": "application/json",
 				},
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 					stream: true,
 				}),
@@ -420,7 +420,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 				}),
 			}),
@@ -456,7 +456,7 @@ describe("POST /v1/chat/completions", () => {
 		expect(await response.json()).toEqual({
 			error: {
 				message:
-					"Invalid model. Supported models: gemma-4-31b-it, gemma-4-26b-a4b-it, gemma-4-12b-it, gpt-oss-120b-32k, gpt-oss-20b-32k",
+					"Invalid model. Supported models: bge-m3, gpt-oss-safeguard-120b, gpt-oss-120b, Whisper-Large-V3, gemma-4-E4B-it, Devstral-2-123B-Instruct-2512, jina-embeddings-v4-vllm-code, Gemma-3-TAIDE-12b-Chat, embeddinggemma-300m, BGE-Reranker-V2-M3, Llama-3.1-405B-Instruct-FP8, whisper-Breeze-ASR-25, Microsoft-Phi-4-multimodal-instruct, Llama-3.3-70B-Instruct-MI210, Devstral-Small-2507, Llama-3.3-Nemotron-Super-49B-v1, Mistral-Small-3.2-24B-Instruct-2506, Mistral-Small-3.1-24B-Instruct-2503, Google-Gemma-3-27B, Llama-3.3-70B-Instruct, gpt-oss-20b, Phi-4-Reasoning-Plus, Granite-3.1-8B-Instruct, Whisper-Large-V3-Turbo, Mistral-Small-24B-Instruct-2501, Mistral-Large-3-675B-Instruct-2512, gemma-3-12b-it, Foundation-Sec-8B-Instruct, Llama-4-Maverick-17B-128E-Instruct-FP8, NVIDIA-Nemotron-3-Super-120B-A12B, Gemma-3-TAIDE-12b-Chat-2602, gemma-4-31B-it, gemma-4-26B-A4B-it, Breeze-ASR-26, NVIDIA-Nemotron-3-Ultra-550B-A55B, Taiwan-Tongues-ASR-CE, BreezyVoice",
 				type: "invalid_request_error",
 				param: "model",
 				code: "model_not_supported",
@@ -479,7 +479,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 				}),
 			}),
 		);
@@ -511,7 +511,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "developer", content: "Hello" }],
 				}),
 			}),
@@ -537,7 +537,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: 123 }],
 				}),
 			}),
@@ -563,7 +563,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages: [{ role: "user", content: "Hello" }],
 					reasoning_effort: "very-high",
 				}),
@@ -609,7 +609,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages,
 				}),
 			}),
@@ -639,7 +639,7 @@ describe("POST /v1/chat/completions", () => {
 					method: "POST",
 					headers: authorizedJsonHeaders,
 					body: JSON.stringify({
-						model: "gemma-4-31b-it",
+						model: "bge-m3",
 						messages: [{ role, content: "Hello" }],
 					}),
 				}),
@@ -693,7 +693,7 @@ describe("POST /v1/chat/completions", () => {
 				method: "POST",
 				headers: authorizedJsonHeaders,
 				body: JSON.stringify({
-					model: "gemma-4-31b-it",
+					model: "bge-m3",
 					messages,
 				}),
 			}),
@@ -705,11 +705,43 @@ describe("POST /v1/chat/completions", () => {
 
 	it("accepts every supported model", async () => {
 		const supportedModels = [
-			"gemma-4-31b-it",
-			"gemma-4-26b-a4b-it",
-			"gemma-4-12b-it",
-			"gpt-oss-120b-32k",
-			"gpt-oss-20b-32k",
+			"bge-m3",
+			"gpt-oss-safeguard-120b",
+			"gpt-oss-120b",
+			"Whisper-Large-V3",
+			"gemma-4-E4B-it",
+			"Devstral-2-123B-Instruct-2512",
+			"jina-embeddings-v4-vllm-code",
+			"Gemma-3-TAIDE-12b-Chat",
+			"embeddinggemma-300m",
+			"BGE-Reranker-V2-M3",
+			"Llama-3.1-405B-Instruct-FP8",
+			"whisper-Breeze-ASR-25",
+			"Microsoft-Phi-4-multimodal-instruct",
+			"Llama-3.3-70B-Instruct-MI210",
+			"Devstral-Small-2507",
+			"Llama-3.3-Nemotron-Super-49B-v1",
+			"Mistral-Small-3.2-24B-Instruct-2506",
+			"Mistral-Small-3.1-24B-Instruct-2503",
+			"Google-Gemma-3-27B",
+			"Llama-3.3-70B-Instruct",
+			"gpt-oss-20b",
+			"Phi-4-Reasoning-Plus",
+			"Granite-3.1-8B-Instruct",
+			"Whisper-Large-V3-Turbo",
+			"Mistral-Small-24B-Instruct-2501",
+			"Mistral-Large-3-675B-Instruct-2512",
+			"gemma-3-12b-it",
+			"Foundation-Sec-8B-Instruct",
+			"Llama-4-Maverick-17B-128E-Instruct-FP8",
+			"NVIDIA-Nemotron-3-Super-120B-A12B",
+			"Gemma-3-TAIDE-12b-Chat-2602",
+			"gemma-4-31B-it",
+			"gemma-4-26B-A4B-it",
+			"Breeze-ASR-26",
+			"NVIDIA-Nemotron-3-Ultra-550B-A55B",
+			"Taiwan-Tongues-ASR-CE",
+			"BreezyVoice",
 		];
 		const forwardedModels: string[] = [];
 		const app = createTestApp({
